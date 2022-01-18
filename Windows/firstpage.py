@@ -2,11 +2,12 @@ import time
 import tkinter as tk
 from PIL import ImageTk, Image
 from threading import *
-import  datetime
+import datetime
 
 from Sensor.camera import Camera
 from Sensor.gps import Gps
 
+from Windows.secondpage import SecondPage
 class FirstPage():
     def __init__(self, root, admin):
         self.root = root
@@ -41,15 +42,16 @@ class FirstPage():
             'Project Road'
         ]
         self.var_authority = tk.StringVar(self.top_frame)
-        self.var_authority.set(self.options_authority[0])
+        self.var_authority.set('')
         self.drop_authority = tk.OptionMenu(self.top_frame, self.var_authority, *self.options_authority)
-        self.drop_authority.config(width=15, font=font)
+        self.drop_authority.config(width=15, font=font, highlightthickness=2)
         self.drop_authority.place(x= int(width_col*2 - 50), y= int(height_row*1))
 
         self.var_roadcode = tk.StringVar(self.top_frame)
+        self.var_roadcode.set('')
         self.label_roadcode = tk.Label(self.top_frame, text="Road Code :", font=font, padx=5, pady=5)
         self.label_roadcode.place(x= int(width_col*1), y= int(height_row*2))
-        self.entry_roadcode = tk.Entry(self.top_frame, width=10, font=font, textvariable=self.var_roadcode)
+        self.entry_roadcode = tk.Entry(self.top_frame, width=10, font=font, textvariable=self.var_roadcode, highlightthickness=2)
         self.entry_roadcode.place(x= int(width_col*2 - 50), y= int(height_row*2))
 
         self.var_time = tk.StringVar(self.top_frame)
@@ -81,6 +83,11 @@ class FirstPage():
         self.entry_iplink = tk.Entry(self.bottom_frame, width=30, font=font, textvariable=self.var_iplink, highlightthickness=2)
         self.entry_iplink.place(x=int(width_col * 2 - 50), y=int(height_row * 1))
 
+        # sensor data
+        self.sensor_data = {
+            'camera' : 'Invalid',
+            'gps':'Invalid'
+        }
         self.button_test = tk.Button(self.bottom_frame, text="Test", command=self.test, font=time_font)
         self.button_test.place(x=int(width_col * 3 + 50), y=int(height_row * 1))
         # Multithreading
@@ -96,6 +103,9 @@ class FirstPage():
         self.label_gps_test = tk.Label(self.bottom_frame, text="[Test : NAN]", font=font, padx=5, pady=5, fg='gold')
         self.label_gps_test.place(x=int(width_col * 2 + (width_col / 2 ) * 1 - 45), y=int(height_row * 2))
 
+        self.label_error = tk.Label(self.bottom_frame, text="", font=time_font, padx=5, pady=5, fg='red')
+        self.label_error.place(x=int(width_col * 2) - 50, y = int(height_row * 2 + height_row // 2))
+
         self.button_start = tk.Button(self.bottom_frame, text="Start", command=self.start, font=font)
         self.button_start.place(x=int(width_col * 2), y=int(height_row * 3))
 
@@ -109,39 +119,99 @@ class FirstPage():
 
     def process_test(self):
         self.button_test['state'] = tk.DISABLED
-        self.label_cam_test.config(text="[Test : Wait]", fg='gold')
-        self.label_gps_test.config(text="[Test : Wait]", fg='gold')
+        self.button_start['state'] = tk.DISABLED
+
         if self.var_iplink.get() == '':
             self.entry_iplink.config(highlightbackground = "red", highlightcolor= "red")
+            self.button_test['state'] = tk.NORMAL
+            self.button_start['state'] = tk.NORMAL
+            self.thread_test = None
             return
+        self.label_error.config(text="sensor connections : [wait]", fg='gold')
+        self.label_cam_test.config(text="[Test : Wait]", fg='gold')
+        self.label_gps_test.config(text="[Test : Wait]", fg='gold')
+        self.entry_iplink.config(highlightbackground="black", highlightcolor="black")
         ip_url = "http://" + self.var_iplink.get()
         try:
             self.cam = Camera(ip_url)
             if self.cam.test() == True:
                 self.label_cam_test.config(text="[Test : Ok]", fg='green')
+                self.sensor_data['camera'] = 'ok'
             else:
                 self.label_cam_test.config(text="[Test : Fail]", fg='red')
+                self.sensor_data['camera'] = 'fail'
         except Exception as e:
             self.label_cam_test.config(text="[Test : Fail]", fg='red')
+            self.sensor_data['camera'] = 'fail'
 
         try:
             self.gps = Gps(ip_url)
             if self.gps.test() == True:
                 self.label_gps_test.config(text="[Test : Ok]", fg='green')
+                self.sensor_data['gps'] = 'ok'
             else:
                 self.label_gps_test.config(text="[Test : Fail]", fg='red')
+                self.sensor_data['gps'] = 'fail'
         except Exception as e:
             self.label_gps_test.config(text="[Test : Fail]", fg='red')
+            self.sensor_data['gps'] = 'fail'
+        # configure error message
+        if self.sensor_data['camera'] == 'ok' and self.sensor_data['gps'] == 'ok':
+            self.label_error.config(text="sensor connections : [Ok]", fg='green')
+        else:
+            self.label_error.config(text="sensor connections : [Fail]", fg='red')
+
+        # release the buttons
         self.button_test['state'] = tk.NORMAL
+        self.button_start['state'] = tk.NORMAL
+
 
     def test(self):
         self.thread_test = Thread(target=self.process_test)
         self.thread_test.start()
 
     def start(self):
-        self.thread_test.join() # main thread waits until the test thread finish
-        # print(self.var_authority.get())
-        # print(self.var_roadcode.get())
+        # reset error state
+        self.label_error.config(text="")
+        # validate data
+        if self.var_authority.get() == '' or self.entry_roadcode.get() == '':
+            if self.var_authority.get() == '':
+                self.drop_authority.config(highlightbackground="red", highlightcolor="red")
+                self.label_error.config(text="Highlighted Entry : [required]", fg='red')
+            else:
+                self.drop_authority.config(highlightbackground="black", highlightcolor="black")
+            if self.entry_roadcode.get() == '':
+                self.entry_roadcode.config(highlightbackground="red", highlightcolor="red")
+                self.label_error.config(text="Highlighted Entry : [required]", fg='red')
+            else:
+                self.entry_roadcode.config(highlightbackground="black", highlightcolor="black")
+            return
+        else:
+            self.drop_authority.config(highlightbackground="black", highlightcolor="black")
+            self.entry_roadcode.config(highlightbackground="black", highlightcolor="black")
+
+        # main thread waits until the test thread finish
+        if self.thread_test == None:
+            self.label_error.config(text="sensor connections : [Invalid]")
+            return
+        else:
+            self.thread_test.join()
+
+        # test for the sensor data
+        if not (self.sensor_data['camera'] == 'ok' and self.sensor_data['gps'] == 'ok'):
+            self.label_error.config(text="sensor connections : [required]", fg='red')
+            return
+        # load next second page
+        self.top_frame.destroy()
+        self.bottom_frame.destroy()
+        SecondPage(self.root)
+
+
+
+
+
+
+
 
 
 
