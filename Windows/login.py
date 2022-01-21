@@ -2,7 +2,7 @@ import tkinter as tk
 from PIL import ImageTk, Image
 from Database.DataBase import DataBase
 from Windows.firstpage import FirstPage
-class LoginPage():
+class LoginPage :
     def __init__(self, root):
         self.root = root
         screen_width = root.winfo_screenwidth()//2

@@ -8,14 +8,15 @@ from Sensor.camera import Camera
 from Sensor.gps import Gps
 
 from Windows.secondpage import SecondPage
-class FirstPage():
+class FirstPage :
     def __init__(self, root, admin):
         self.root = root
+        self.admin = admin
         screen_width = root.winfo_screenwidth()//2
         screen_height = root.winfo_screenheight()//2
 
-        width_col = screen_width // 4
-        height_row = (screen_height * 0.5) // 4
+        width_col = screen_width//4
+        height_row = (screen_height * 0.5)//4
 
         font = ("Calibry", 12, "bold")
         time_font = ("Calibary", 10, "bold")
@@ -113,8 +114,8 @@ class FirstPage():
         curr = datetime.datetime.now()
         self.var_date.set(curr.date())
         self.var_time.set(curr.time().strftime("%H:%M"))
-        self.time.config(text = self.var_time.get())
-        self.date.config(text = self.var_date.get())
+        self.time.config(text=self.var_time.get())
+        self.date.config(text=self.var_date.get())
         self.top_frame.after(1000, self.datetime)
 
     def process_test(self):
@@ -134,7 +135,7 @@ class FirstPage():
         ip_url = "http://" + self.var_iplink.get()
         try:
             self.cam = Camera(ip_url)
-            if self.cam.test() == True:
+            if self.cam.test() is True:
                 self.label_cam_test.config(text="[Test : Ok]", fg='green')
                 self.sensor_data['camera'] = 'ok'
             else:
@@ -146,7 +147,7 @@ class FirstPage():
 
         try:
             self.gps = Gps(ip_url)
-            if self.gps.test() == True:
+            if self.gps.test() is True:
                 self.label_gps_test.config(text="[Test : Ok]", fg='green')
                 self.sensor_data['gps'] = 'ok'
             else:
@@ -167,7 +168,7 @@ class FirstPage():
 
 
     def test(self):
-        self.thread_test = Thread(target=self.process_test)
+        self.thread_test = Thread(target=self.process_test, daemon=True)
         self.thread_test.start()
 
     def start(self):
@@ -189,7 +190,6 @@ class FirstPage():
         else:
             self.drop_authority.config(highlightbackground="black", highlightcolor="black")
             self.entry_roadcode.config(highlightbackground="black", highlightcolor="black")
-
         # main thread waits until the test thread finish
         if self.thread_test == None:
             self.label_error.config(text="sensor connections : [Invalid]")
@@ -204,7 +204,11 @@ class FirstPage():
         # load next second page
         self.top_frame.destroy()
         self.bottom_frame.destroy()
-        SecondPage(self.root)
+        survey_data = {
+            'authority' : self.var_authority.get(),
+            'roadcode' : self.var_roadcode.get()
+        }
+        SecondPage(self.root, self.admin, self.cam, self.gps, "http://" + self.var_iplink.get(), survey_data)
 
 
 
