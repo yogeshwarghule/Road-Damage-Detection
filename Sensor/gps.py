@@ -23,7 +23,7 @@ class Gps:
                   location = self.http_con.get(self.con_url, verify=False)
                   if location.status_code == 200:
                       self.thread_lock.acquire()
-                      if location.json()['gps'] != {} and location.json()['network'] != {}:
+                      if 'gps' in location.json().keys() and location.json()['gps'] != {} and 'network' in location.json().keys() and location.json()['network'] != {}:
                           if int(location.json()['gps']['accuracy']) > int(location.json()['network']['accuracy']):
                               self.loc['lat'] = location.json()['gps']['latitude']
                               self.loc['long'] = location.json()['gps']['longitude']
@@ -31,22 +31,23 @@ class Gps:
                               self.loc['lat'] = location.json()['network']['latitude']
                               self.loc['long'] = location.json()['network']['longitude']
                       else:
-                          if location.json()['gps'] != {}:
+                          if 'gps' in location.json().keys() and location.json()['gps'] != {}:
                               self.loc['lat'] = location.json()['gps']['latitude']
                               self.loc['long'] = location.json()['gps']['longitude']
-                          else:
+                          elif 'network' in location.json().keys() and location.json()['network'] != {}:
                               self.loc['lat'] = location.json()['network']['latitude']
                               self.loc['long'] = location.json()['network']['longitude']
+                          else:
+                              raise ConnectionError("Connection Error")
                       self.thread_lock.release()
                   else:
                       raise ConnectionError("Connection Error")
                   if self.stop_event.is_set():
                       break
-          except Exception as e :
-              raise Exception(e)
+          except ConnectionError as e:
+              self.stop()
 
       def gps_start(self):
-          print("starting gps")
           self.thread_gps.start()
 
       def is_running(self):

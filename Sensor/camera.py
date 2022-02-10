@@ -1,4 +1,6 @@
+import time
 import cv2
+import queue
 from PIL import Image
 from threading import *
 
@@ -13,6 +15,7 @@ class Camera:
           }
           self.cam_thread = None
           self.thread_lock = Lock()
+          self.fps = 30
           try:
               self.cap = cv2.VideoCapture(self.con_url)
               if self.cap is None:
@@ -31,15 +34,16 @@ class Camera:
           try:
               while True:
                   res, frame = self.cap.read()
-                  if not res:
-                      raise ConnectionError("Connection Error")
+                  if res is False:
+                      continue
                   self.thread_lock.acquire()
                   self.frame = frame
                   self.thread_lock.release()
                   if self.stop_event.is_set():
                       break
+                  time.sleep(1//self.fps)
           except ConnectionError as e:
-             raise ConnectionError(e)
+             self.stop()
 
       def cam_start(self):
           self.cam_thread.start()
@@ -61,11 +65,8 @@ class Camera:
               raise Exception("System Error")
 
       def test(self):
-          try:
-              res, frame = self.cap.read()
-              return self.cap.isOpened() and res
-          except (cv2.error, Exception):
-              raise ConnectionError("Connection Error")
+          res, frame = self.cap.read()
+          return res
 
       def getFrame(self):
           self.thread_lock.acquire()
