@@ -113,21 +113,26 @@ class SecondPage():
             # self.threads['thread_sensor'] = Thread(target=self.test_sensor, daemon=True)
             # self.threads['thread_sensor'].start()
             self.label_system_status.config(text="[Ready]", fg='green')
-        except:
+        except Exception:
             self.button_start['state'] = tk.DISABLED
             self.label_system_status.config(text="[Error]", fg='red')
             self.test_sensor()
 
     def test_sensor(self):
-        if self.cam.test() is False and self.cam.is_running():
+        if not self.cam.test() or not self.cam.is_running():
             self.label_cam_status.config(text='[Error]', fg='red')
-        if self.gps.test() is False and self.gps.is_running():
+        if not self.gps.test() or not self.gps.is_running():
+            print(self.gps.test())
+            print(self.gps.is_running())
             self.label_gps_status.config(text='[Error]', fg='red')
+
 
     def pre_process(self):
         self.events['pre_process'].clear()
-        while True:
-            try:
+        try:
+            while True:
+                if not self.cam.is_running() or not self.gps.is_running():
+                    raise ConnectionError("Connection Error")
                 img = self.cam.getImage(self.img_prop)
                 imgtk = ImageTk.PhotoImage(image=img)
                 self.cam_feed.imgtk = imgtk
@@ -139,8 +144,8 @@ class SecondPage():
                 if self.events['pre_process'].is_set():
                     break
                 time.sleep(0.1)
-            except ConnectionError:
-                self.test_sensor()
+        except ConnectionError:
+            self.test_sensor()
 
     def datetime(self):
        curr = datetime.datetime.now()
@@ -158,9 +163,12 @@ class SecondPage():
         self.events['thread_process'].set()
         self.events['thread_database'].set()
 
-        self.threads['thread_read'].join()
-        self.threads['thread_process'].join()
-        self.threads['thread_database'].join()
+        if self.threads['thread_read'] is not None and self.threads['thread_read'].isAlive():
+            self.threads['thread_read'].join()
+        if self.threads['thread_process'] is not None and self.threads['thread_process'].isAlive():
+            self.threads['thread_process'].join()
+        if self.threads['thread_database'] is not None and self.threads['thread_database'].isAlive():
+            self.threads['thread_database'].join()
 
         self.label_system_status.config(text="[Stopped]", fg='red')
         self.button_start['state'] = tk.NORMAL
@@ -200,9 +208,6 @@ class SecondPage():
         self.button_start['state'] = tk.DISABLED
         self.button_stop['state'] = tk.NORMAL
         self.label_system_status.config(text="[Running]", fg='green')
-        self.state = 'start'
-        # started the processing
-        print("starting the process")
 
     def close(self):
         if tk.messagebox.askokcancel("Quit", "Do you want to quit RDD?"):
@@ -212,6 +217,8 @@ class SecondPage():
     def read(self):
         try:
             while True:
+                if not self.cam.is_running() or not self.gps.is_running():
+                    raise ConnectionError("Connection Error")
                 frame = self.cam.getFrame()
                 loc = self.gps.getLocation()
                 time.sleep(2)
@@ -229,20 +236,20 @@ class SecondPage():
         try:
             while True:
                 data = self.process_queue.get()
+                print(data)
                 time.sleep(1)
                 self.process_queue.task_done()
-                self.output_queue.put({'data': data['location'], 'damage': 'D10'})
+                self.output_queue.put({'location': data['location'], 'damage': 'D10'})
                 if self.events['thread_process'].is_set():
                     break
         except ConnectionError:
             self.test_sensor()
 
-
-
     def database(self):
         try:
             while True:
                 data = self.output_queue.get()
+                print("saving ")
                 time.sleep(0.1)
                 print(data)
                 self.output_queue.task_done()

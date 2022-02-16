@@ -51,7 +51,7 @@ class Gps:
           self.thread_gps.start()
 
       def is_running(self):
-          self.thread_gps is not None and self.thread_gps.isAlive()
+         return self.thread_gps is not None and self.thread_gps.isAlive()
 
       def stop(self):
           if self.is_running():
