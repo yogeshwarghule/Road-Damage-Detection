@@ -104,6 +104,7 @@ class SecondPage():
     def initiate(self):
         try:
             self.button_stop['state'] = tk.DISABLED
+            self.button_config['state'] = tk.NORMAL
             self.datetime()
             self.cam.cam_start()
             self.gps.gps_start()
@@ -121,11 +122,10 @@ class SecondPage():
     def test_sensor(self):
         if not self.cam.test() or not self.cam.is_running():
             self.label_cam_status.config(text='[Error]', fg='red')
+            self.label_system_status.config(text="[Error]", fg='red')
         if not self.gps.test() or not self.gps.is_running():
-            print(self.gps.test())
-            print(self.gps.is_running())
             self.label_gps_status.config(text='[Error]', fg='red')
-
+            self.label_system_status.config(text="[Error]", fg='red')
 
     def pre_process(self):
         self.events['pre_process'].clear()
@@ -156,7 +156,101 @@ class SecondPage():
        self.system_frame.after(1000, self.datetime)
 
     def configure(self):
-       pass
+        thread_config = Thread(target=self.start_configure, daemon=True)
+        thread_config.start()
+
+    def start_configure(self):
+        self.stop()
+        if self.threads['pre_process'] is not None and self.threads['pre_process'].isAlive():
+            self.events['pre_process'].set()
+            self.threads['pre_process'].join()
+        self.button_config['state'] = tk.DISABLED
+        configwin = tk.Toplevel(self.root)
+        configwin.title('Configure Sensor Connection')
+        def on_closing():
+            configwin.destroy()
+            self.button_config['state'] = tk.NORMAL
+        configwin.protocol("WM_DELETE_WINDOW", on_closing)
+        window_width = int((self.root.winfo_screenwidth() // 6)*2)
+        window_height = int(self.img_prop['height']) // 4
+        x_cordinate = self.root.winfo_screenwidth() // 2
+        y_cordinate = self.root.winfo_screenheight() // 2
+        configwin.geometry(f"{window_width}x{window_height}+{x_cordinate}+{y_cordinate}")
+        configwin.resizable(False, False)
+        # place widget for ui
+        row = 3
+        col = 5
+        small_font = ("Calibry", 12, "bold")
+        label = tk.Label(configwin, text="Connection Url: ", font=small_font, padx=5, pady=5)
+        label.place(x=(window_width // col) * 0, y=(window_height // row) * 0)
+
+        var_iplink = tk.StringVar(configwin)
+        var_iplink.set("")
+        entry_iplink = tk.Entry(configwin, width=30, font=small_font, textvariable=var_iplink, highlightthickness=2)
+        entry_iplink.place(x=(window_width // col) * 1 + 25, y=(window_height // row) * 0)
+
+        cam = tk.Label(configwin, text="Camera : ", font=small_font, padx=5, pady=5)
+        cam.place(x=(window_width // col) * 0, y=(window_height // row) * 1)
+        cam_status = tk.Label(configwin, text="[NAN]", font=small_font, padx=5, pady=5, fg='gold')
+        cam_status.place(x=(window_width // col) * 1, y=(window_height // row) * 1)
+
+        gps = tk.Label(configwin, text="GPS : ", font=small_font, padx=5, pady=5)
+        gps.place(x=(window_width // col) * 3, y=(window_height // row) * 1)
+        gps_status = tk.Label(configwin, text="[NAN]", font=small_font, padx=5, pady=5, fg='gold')
+        gps_status.place(x=(window_width // col) * 4, y=(window_height // row) * 1)
+
+        button_config = tk.Button(configwin, text="Configure", command=lambda: self.refresh(configwin), font=small_font, width=10, height=1)
+        button_config.place(x=(window_width // col) * 2, y=(window_height // row) * 2)
+        button_config['state'] = tk.DISABLED
+
+        button_test = tk.Button(configwin, text="test",
+                                command=lambda: self.configtest(var_iplink, entry_iplink, cam_status, gps_status, button_config
+                                                                ,button_test),
+                                font=small_font, width=8, height=1)
+        button_test.place(x=(window_width // col) * 4, y=(window_height // row) * 0)
+
+    def configtest(self, var_iplink, entry_iplink, cam_status, gps_status, button_config, button_test):
+        thread = Thread(target=self.start_configtest, args=(var_iplink, entry_iplink, cam_status, gps_status, button_config
+                                                            , button_test), daemon=True)
+        thread.start()
+
+    def start_configtest(self, var_iplink, entry_iplink, cam_status, gps_status, button_config, button_test):
+        button_config['state'] = tk.DISABLED
+        entry_iplink.config(highlightbackground="black", highlightcolor="black")
+        if var_iplink.get() is None or var_iplink.get() is "":
+            entry_iplink.config(highlightbackground="red", highlightcolor="red")
+            cam_status.config(text="[NAN]", fg='gold')
+            gps_status.config(text="[NAN]", fg='gold')
+            return
+        button_test['state'] = tk.DISABLED
+        url = "http://" + var_iplink.get()
+        cam_status.config(text="[wait]", fg='gold')
+        gps_status.config(text="[wait]", fg='gold')
+        try:
+            cam = Camera(url)
+            gps = Gps(url)
+            if cam.test():
+                cam_status.config(text="[ok]", fg='green')
+            else:
+                cam_status.config(text="[fail]", fg='red')
+            if gps.test():
+                gps_status.config(text="[ok]", fg='green')
+            else:
+                gps_status.config(text="[fail]", fg='red')
+            self.cam.stop()
+            self.gps.stop()
+            self.cam = cam
+            self.gps = gps
+            button_config['state'] = tk.NORMAL
+        except Exception:
+            cam_status.config(text="[fail]", fg='red')
+            gps_status.config(text="[fail]", fg='red')
+        finally:
+            button_test['state'] = tk.NORMAL
+
+    def refresh(self, configwin):
+        self.initiate()
+        configwin.destroy()
 
     def stop(self):
         self.events['thread_read'].set()

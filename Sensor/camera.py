@@ -21,7 +21,7 @@ class Camera:
           try:
               self.stream = urllib.request.urlopen(self.con_url)
               self.frame = self.readFrame()
-          except Exception:
+          except Exception as e:
               raise ConnectionError("Initialization Error")
           self.cam_thread = Thread(target=self.__process, daemon=True)
       def __process(self):
