@@ -3,8 +3,8 @@ import tkinter as tk
 from tkinter import messagebox
 import cv2
 from PIL import ImageTk, Image
-from threading import *
 from Database.DataBase import DataBase
+from Model.model import Model
 from threading import *
 import datetime
 from Sensor.camera import Camera
@@ -253,10 +253,14 @@ class SecondPage():
         configwin.destroy()
 
     def stop(self):
+        thread = Thread(target=self.start_stop, daemon=True)
+        thread.start()
+
+    def start_stop(self):
         self.events['thread_read'].set()
         self.events['thread_process'].set()
         self.events['thread_database'].set()
-
+        self.button_stop['state'] = tk.DISABLED
         if self.threads['thread_read'] is not None and self.threads['thread_read'].isAlive():
             self.threads['thread_read'].join()
         if self.threads['thread_process'] is not None and self.threads['thread_process'].isAlive():
@@ -266,7 +270,6 @@ class SecondPage():
 
         self.label_system_status.config(text="[Stopped]", fg='red')
         self.button_start['state'] = tk.NORMAL
-        self.button_stop['state'] = tk.DISABLED
 
     def start(self):
         self.events['thread_read'].clear()
@@ -315,7 +318,7 @@ class SecondPage():
                     raise ConnectionError("Connection Error")
                 frame = self.cam.getFrame()
                 loc = self.gps.getLocation()
-                time.sleep(2)
+                time.sleep(3)
                 self.process_queue.put({'frame': frame, 'location': loc})
                 if self.events['thread_read'].is_set():
                     break
@@ -327,13 +330,21 @@ class SecondPage():
         if self.threads['pre_process'].isAlive():
             self.events['pre_process'].set()
             self.threads['pre_process'].join()
+        model = Model()
         try:
             while True:
                 data = self.process_queue.get()
-                print(data)
-                time.sleep(1)
+                frame, damages, confidences = model.getPrediction(data['frame'])
+                # update feed
+                frame = cv2.resize(frame, (int(self.img_prop['width']), int(self.img_prop['height'])), cv2.INTER_AREA)
+                cv2image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
+                img = Image.fromarray(cv2image)
+                imgtk = ImageTk.PhotoImage(image=img)
+                self.cam_feed.imgtk = imgtk
+                self.cam_feed.configure(image=imgtk)
+                self.cam_feed.image = imgtk
                 self.process_queue.task_done()
-                self.output_queue.put({'location': data['location'], 'damage': 'D10'})
+                self.output_queue.put({'location': data['location'], 'damage': damages})
                 if self.events['thread_process'].is_set():
                     break
         except ConnectionError:

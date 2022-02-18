@@ -6,9 +6,9 @@ import datetime
 
 from Sensor.camera import Camera
 from Sensor.gps import Gps
-
 from Windows.secondpage import SecondPage
-class FirstPage :
+
+class FirstPage:
     def __init__(self, root, admin):
         self.root = root
         self.admin = admin
