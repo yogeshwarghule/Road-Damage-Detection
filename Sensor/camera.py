@@ -21,8 +21,8 @@ class Camera:
           try:
               self.stream = urllib.request.urlopen(self.con_url)
               self.frame = self.readFrame()
-          except Exception as e:
-              raise ConnectionError("Initialization Error")
+          except Exception:
+              raise SystemError("Initialization Error")
           self.cam_thread = Thread(target=self.__process, daemon=True)
       def __process(self):
           try:
@@ -55,11 +55,12 @@ class Camera:
               self.cam_thread = Thread(target=self.__process, daemon=True)
               self.cam_thread.start()
           else:
-              raise Exception("System Error")
+              self.stop()
 
       def test(self):
           try:
-             return self.stream.getcode() == 200
+              data = urllib.request.urlopen(self.con_url)
+              return self.stream.getcode() == 200 and data is not None
           except Exception:
               return False
 

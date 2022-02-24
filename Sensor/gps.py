@@ -38,13 +38,14 @@ class Gps:
                               self.loc['lat'] = location.json()['network']['latitude']
                               self.loc['long'] = location.json()['network']['longitude']
                           else:
-                              raise ConnectionError("Connection Error")
+                              self.thread_lock.release()
+                              break
                       self.thread_lock.release()
                   else:
-                      raise ConnectionError("Connection Error")
+                      break
                   if self.stop_event.is_set():
                       break
-          except ConnectionError as e:
+          except ConnectionError:
               self.stop()
 
       def gps_start(self):
@@ -69,8 +70,8 @@ class Gps:
       def test(self):
           try:
               return self.http_con.get(self.con_url, verify=False).status_code == 200
-          except Exception as e:
-              raise ConnectionError("Connection Error")
+          except Exception:
+              return False
 
       def getLocation(self):
           self.thread_lock.acquire()

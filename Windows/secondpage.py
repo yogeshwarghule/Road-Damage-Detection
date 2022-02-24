@@ -10,6 +10,7 @@ import datetime
 from Sensor.camera import Camera
 from Sensor.gps import Gps
 import queue
+from Save_Data.record import Record
 
 class SecondPage():
     def __init__(self, root, admin, cam, gps, ip_url, survey_data):
@@ -17,6 +18,10 @@ class SecondPage():
        self.admin = admin
        self.cam = cam
        self.gps = gps
+       # making file
+       self.file = Record(admin, survey_data)
+       self.db = DataBase()
+       self.db.createSurvey(admin, survey_data)
        self.ip_url = ip_url
        self.survey_data = survey_data
        screen_width = (root.winfo_screenwidth() // 6) * 4
@@ -103,14 +108,27 @@ class SecondPage():
 
     def initiate(self):
         try:
+            while True:
+                self.process_queue.get_nowait()
+        except queue.Empty:
+            pass
+        try:
+            while True:
+                self.output_queue.get_nowait()
+        except queue.Empty:
+            pass
+        try:
             self.button_stop['state'] = tk.DISABLED
             self.button_config['state'] = tk.NORMAL
+            self.button_start['state'] = tk.NORMAL
             self.datetime()
             self.cam.cam_start()
             self.gps.gps_start()
             # Thread(target=self.pre_process, daemon=True)
-            self.threads['pre_process'] = Thread(target=self.pre_process, daemon=True)
+            self.threads['pre_process'] = Thread(target=self.pre_process, daemon=True, name='pre_process')
             self.threads['pre_process'].start()
+            self.label_cam_status.config(text='[OK]', fg='green')
+            self.label_gps_status.config(text='[OK]', fg='green')
             # self.threads['thread_sensor'] = Thread(target=self.test_sensor, daemon=True)
             # self.threads['thread_sensor'].start()
             self.label_system_status.config(text="[Ready]", fg='green')
@@ -120,13 +138,27 @@ class SecondPage():
             self.test_sensor()
 
     def test_sensor(self):
-        if not self.cam.test() or not self.cam.is_running():
+        try:
+            iserro = False
+            if not self.cam.test() or not self.cam.is_running():
+                self.label_cam_status.config(text='[Error]', fg='red')
+                iserro = True
+            if not self.gps.test() or not self.gps.is_running():
+                self.label_gps_status.config(text='[Error]', fg='red')
+                iserro = True
+
+            if iserro:
+                self.button_start['state'] = tk.DISABLED
+                self.stop(True)
+                self.label_system_status.config(text="[Error]", fg='red')
+        except Exception:
+            self.stop(True)
+            self.button_start['state'] = tk.DISABLED
             self.label_cam_status.config(text='[Error]', fg='red')
-            self.label_system_status.config(text="[Error]", fg='red')
-        if not self.gps.test() or not self.gps.is_running():
             self.label_gps_status.config(text='[Error]', fg='red')
             self.label_system_status.config(text="[Error]", fg='red')
 
+            
     def pre_process(self):
         self.events['pre_process'].clear()
         try:
@@ -156,7 +188,7 @@ class SecondPage():
        self.system_frame.after(1000, self.datetime)
 
     def configure(self):
-        thread_config = Thread(target=self.start_configure, daemon=True)
+        thread_config = Thread(target=self.start_configure, daemon=True, name='Configure')
         thread_config.start()
 
     def start_configure(self):
@@ -205,13 +237,13 @@ class SecondPage():
 
         button_test = tk.Button(configwin, text="test",
                                 command=lambda: self.configtest(var_iplink, entry_iplink, cam_status, gps_status, button_config
-                                                                ,button_test),
+                                                                , button_test),
                                 font=small_font, width=8, height=1)
         button_test.place(x=(window_width // col) * 4, y=(window_height // row) * 0)
 
     def configtest(self, var_iplink, entry_iplink, cam_status, gps_status, button_config, button_test):
         thread = Thread(target=self.start_configtest, args=(var_iplink, entry_iplink, cam_status, gps_status, button_config
-                                                            , button_test), daemon=True)
+                                                            , button_test), daemon=True, name='config_test')
         thread.start()
 
     def start_configtest(self, var_iplink, entry_iplink, cam_status, gps_status, button_config, button_test):
@@ -237,8 +269,6 @@ class SecondPage():
                 gps_status.config(text="[ok]", fg='green')
             else:
                 gps_status.config(text="[fail]", fg='red')
-            self.cam.stop()
-            self.gps.stop()
             self.cam = cam
             self.gps = gps
             button_config['state'] = tk.NORMAL
@@ -252,37 +282,17 @@ class SecondPage():
         self.initiate()
         configwin.destroy()
 
-    def stop(self):
-        thread = Thread(target=self.start_stop, daemon=True)
+    def stop(self, iserr = False):
+        thread = Thread(target=self.start_stop, args=(iserr,), daemon=True, name='stop')
         thread.start()
 
-    def start_stop(self):
+    def start_stop(self, iserr):
         self.events['thread_read'].set()
         self.events['thread_process'].set()
         self.events['thread_database'].set()
         self.button_stop['state'] = tk.DISABLED
-        if self.threads['thread_read'] is not None and self.threads['thread_read'].isAlive():
-            self.threads['thread_read'].join()
-        if self.threads['thread_process'] is not None and self.threads['thread_process'].isAlive():
-            self.threads['thread_process'].join()
-        if self.threads['thread_database'] is not None and self.threads['thread_database'].isAlive():
-            self.threads['thread_database'].join()
-
-        self.label_system_status.config(text="[Stopped]", fg='red')
-        self.button_start['state'] = tk.NORMAL
-
-    def start(self):
-        self.events['thread_read'].clear()
-        self.events['thread_process'].clear()
-        self.events['thread_database'].clear()
-
-        # 'pre_process': Thread(target=self.pre_process, daemon=True)
-        # 'thread_read': Thread(target=self.read, daemon=True)
-        # 'thread_process': Thread(target=self.process, daemon=True)
-        # 'thread_database': Thread(target=self.database, daemon=True)
 
         # Empty the process and output queue
-
         try:
             while True:
                 self.process_queue.get_nowait()
@@ -294,9 +304,38 @@ class SecondPage():
         except queue.Empty:
             pass
 
-        self.threads['thread_read'] = Thread(target=self.read, daemon=True)
-        self.threads['thread_process'] = Thread(target=self.process, daemon=True)
-        self.threads['thread_database'] = Thread(target=self.database, daemon=True)
+        if self.threads['thread_read'] is not None and self.threads['thread_read'].isAlive():
+            self.threads['thread_read'].join()
+        if self.threads['thread_process'] is not None and self.threads['thread_process'].isAlive():
+            self.threads['thread_process'].join()
+        if self.threads['thread_database'] is not None and self.threads['thread_database'].isAlive():
+            self.threads['thread_database'].join()
+        self.label_system_status.config(text="[Stopped]", fg='red')
+        if not iserr:
+            self.button_start['state'] = tk.NORMAL
+
+    def start(self):
+        self.events['thread_read'].clear()
+        self.events['thread_process'].clear()
+        self.events['thread_database'].clear()
+        # 'pre_process': Thread(target=self.pre_process, daemon=True)
+        # 'thread_read': Thread(target=self.read, daemon=True)
+        # 'thread_process': Thread(target=self.process, daemon=True)
+        # 'thread_database': Thread(target=self.database, daemon=True)
+        # Empty the process and output queue
+        try:
+            while True:
+                self.process_queue.get_nowait()
+        except queue.Empty:
+            pass
+        try:
+            while True:
+                self.output_queue.get_nowait()
+        except queue.Empty:
+            pass
+        self.threads['thread_read'] = Thread(target=self.read, daemon=True, name='read')
+        self.threads['thread_process'] = Thread(target=self.process, daemon=True, name='process')
+        self.threads['thread_database'] = Thread(target=self.database, daemon=True, name='database')
 
         self.threads['thread_read'].start()
         self.threads['thread_process'].start()
@@ -322,7 +361,7 @@ class SecondPage():
                 self.process_queue.put({'frame': frame, 'location': loc})
                 if self.events['thread_read'].is_set():
                     break
-        except ConnectionError:
+        except ConnectionError as e:
             self.test_sensor()
 
     def process(self):
@@ -354,9 +393,8 @@ class SecondPage():
         try:
             while True:
                 data = self.output_queue.get()
-                print("saving ")
-                time.sleep(0.1)
-                print(data)
+                self.file.add_Damage(data['location'], data['damage'])
+                self.db.addData(data['location'], data['damage'])
                 self.output_queue.task_done()
                 if self.events['thread_database'].is_set():
                     break
