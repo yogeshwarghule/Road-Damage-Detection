@@ -40,6 +40,19 @@ To generate a map of geo-tagged data:
 
 Instructions for collecting data using the mobile sensors.
 
+![Alt text](https://github.com/yogeshwarghule/Road-Damage-Detection/blob/main/1.png)
+
+![Alt text](https://github.com/yogeshwarghule/Road-Damage-Detection/blob/main/3.png)
+
+![Alt text](https://github.com/yogeshwarghule/Road-Damage-Detection/blob/main/2.png)
+
+![Alt text](https://github.com/yogeshwarghule/Road-Damage-Detection/blob/main/4.jpeg)
+
+
+
+
+
+
 ## Contributing
 
 We welcome contributions to this project. If you would like to contribute, please follow these guidelines:
