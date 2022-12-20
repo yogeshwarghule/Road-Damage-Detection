@@ -1,5 +1,5 @@
 import tkinter as tk    
-from Windows.firstpage import FirstPage    
+from Windows.firstpage import FirstPage      
 from Windows.login import LoginPage    
 from Sensor.camera import Camera    
 from Sensor.gps import Gps
