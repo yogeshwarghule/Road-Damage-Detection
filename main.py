@@ -4,7 +4,7 @@ from Windows.login import LoginPage
 from Sensor.camera import Camera    
 from Sensor.gps import Gps
 from Windows.secondpage import SecondPage
-if __name__ == "__main__":
+if __name__ == "__main__":  
     root = tk.Tk()
     root.title("RDD : Road Damage Detector")
 
