@@ -6,7 +6,7 @@ from Sensor.gps import Gps
 from Windows.secondpage import SecondPage  
 if __name__ == "__main__":  
     root = tk.Tk()
-    root.title("RDD : Road Damage Detector")
+    root.title("RDD : Road Damage Detector")  
 
     # screen size
     screen_width = root.winfo_screenwidth()//2
