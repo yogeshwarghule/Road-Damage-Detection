@@ -28,5 +28,5 @@ if __name__ == "__main__":
     # gps = Gps(url)
     # SecondPage(root, admin, cam, gps, url, survey_data)
 
-    root.mainloop()
+    root.mainloop()  
 
