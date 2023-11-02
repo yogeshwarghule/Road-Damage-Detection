@@ -1,5 +1,5 @@
 # Deep Learning Approach To Detect Road Surface Damage and Geo-tagging of Data
-  
+    
 This project uses deep learning techniques to detect road surface damage and geo-tag collected data on a map to help authorities with road maintenance. Mobile sensors (GPS, camera) are used to collect data that is processed by a convolutional neural network (CNN) to classify and detect surface damage.
 
 ## Getting Started
